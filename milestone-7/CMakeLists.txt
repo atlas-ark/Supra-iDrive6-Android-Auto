@@ -89,3 +89,12 @@ target_link_libraries(nbt-aad PRIVATE
     screen
     usbdi
 )
+
+# Standalone tools
+add_executable(test_controls test_controls.cpp src/dsi_client.cpp)
+target_compile_options(test_controls PRIVATE -Wall -Wextra -O2 -D_QNX_SOURCE)
+target_include_directories(test_controls PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+add_executable(pf_aa tools/pf_aa.cpp)
+target_compile_options(pf_aa PRIVATE -Wall -Wextra -O2 -D_QNX_SOURCE)
+target_include_directories(pf_aa PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tools)
