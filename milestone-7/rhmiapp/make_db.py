@@ -23,19 +23,37 @@ TEXTS = {1: "Android Auto", 2: "Android Auto: Connecting...",   # 2 = entry text
          22: "Show iDrive warnings",   # 22 = iDrive warnings checkbox (rhmiapp-32)
          23: "Settings",   # 23 = Settings row (hmiState 10) / page title (hmiState 14), rhmiapp-39
          24: "Android Auto over USB (beta)",   # 24 = USB checkbox on the Settings page (rhmiapp-40)
+         25: "Now Playing", 26: "Play / Pause", 27: "Next track", 28: "Previous track",
+         29: "Now Playing (Playing)", 30: "Now Playing (Paused)", 31: "Pause", 32: "Play",
+         33: "Direct audio (Wi-Fi/USB)",
          17: ABOUT}
 # Per-language overrides (ASCII only, like the language names above).
 LANG_TEXTS = {
     "de": {22: "iDrive-Warnungen anzeigen", 21: "Abbiegepfeile in Kombi/HUD", 20: "Fahrmodus-Wechsel anzeigen", 19: "MENU-Taste oeffnet iDrive", 2: "Android Auto: Verbinden...", 18: "Protokolle auf USB speichern", 10: "Android Auto starten", 11: "Beenden erzwingen", 12: "Neu starten",
-           13: "Verbinden...", 14: "Android Auto oeffnen", 15: "Automatisch starten", 16: "Info", 23: "Einstellungen", 24: "Android Auto per USB (Beta)"},
+           13: "Verbinden...", 14: "Android Auto oeffnen", 15: "Automatisch starten", 16: "Info", 23: "Einstellungen", 24: "Android Auto per USB (Beta)",
+           25: "Aktuelle Wiedergabe", 26: "Wiedergabe / Pause", 27: "Naechster Titel", 28: "Vorheriger Titel",
+           29: "Aktuelle Wiedergabe (Spielt)", 30: "Aktuelle Wiedergabe (Pause)", 31: "Pause", 32: "Wiedergabe",
+           33: "Direktes Audio (WLAN/USB)"},
     "es-ES": {22: "Mostrar avisos de iDrive", 21: "Flechas de giro en cuadro/HUD", 20: "Mostrar cambios de modo de conduccion", 19: "La tecla MENU abre iDrive", 2: "Android Auto: Conectando...", 18: "Guardar registros en USB", 10: "Iniciar Android Auto", 11: "Forzar cierre", 12: "Reiniciar",
-              13: "Conectando...", 14: "Abrir Android Auto", 15: "Iniciar automaticamente", 16: "Acerca de", 23: "Ajustes", 24: "Android Auto por USB (beta)"},
+              13: "Conectando...", 14: "Abrir Android Auto", 15: "Iniciar automaticamente", 16: "Acerca de", 23: "Ajustes", 24: "Android Auto por USB (beta)",
+              25: "En reproduccion", 26: "Reproducir / Pausa", 27: "Pista siguiente", 28: "Pista anterior",
+              29: "En reproduccion (Activo)", 30: "En reproduccion (Pausa)", 31: "Pausa", 32: "Reproducir",
+              33: "Audio directo (Wi-Fi/USB)"},
     "fr-FR": {22: "Afficher les avertissements iDrive", 21: "Fleches de direction combine/HUD", 20: "Afficher les changements de mode de conduite", 19: "La touche MENU ouvre iDrive", 2: "Android Auto : Connexion...", 18: "Enregistrer les journaux sur USB", 10: "Demarrer Android Auto", 11: "Forcer l'arret", 12: "Redemarrer",
-              13: "Connexion...", 14: "Ouvrir Android Auto", 15: "Demarrage automatique", 16: "A propos", 23: "Parametres", 24: "Android Auto par USB (beta)"},
+              13: "Connexion...", 14: "Ouvrir Android Auto", 15: "Demarrage automatique", 16: "A propos", 23: "Parametres", 24: "Android Auto par USB (beta)",
+              25: "Lecture en cours", 26: "Lecture / Pause", 27: "Piste suivante", 28: "Piste precedente",
+              29: "Lecture en cours (Lecture)", 30: "Lecture en cours (Pause)", 31: "Pause", 32: "Lecture",
+              33: "Audio direct (Wi-Fi/USB)"},
     "it": {22: "Mostra gli avvisi di iDrive", 21: "Frecce di svolta nel quadro/HUD", 20: "Mostra i cambi di modalita di guida", 19: "Il tasto MENU apre iDrive", 2: "Android Auto: Connessione...", 18: "Salva i log su USB", 10: "Avvia Android Auto", 11: "Arresto forzato", 12: "Riavvia",
-           13: "Connessione...", 14: "Apri Android Auto", 15: "Avvio automatico", 16: "Informazioni", 23: "Impostazioni", 24: "Android Auto via USB (beta)"},
+           13: "Connessione...", 14: "Apri Android Auto", 15: "Avvio automatico", 16: "Informazioni", 23: "Impostazioni", 24: "Android Auto via USB (beta)",
+           25: "In riproduzione", 26: "Play / Pausa", 27: "Brano successivo", 28: "Brano precedente",
+           29: "In riproduzione (Play)", 30: "In riproduzione (Pausa)", 31: "Pausa", 32: "Play",
+           33: "Audio diretto (Wi-Fi/USB)"},
     "pt": {22: "Mostrar avisos do iDrive", 21: "Setas de viragem no painel/HUD", 20: "Mostrar mudancas de modo de conducao", 19: "A tecla MENU abre o iDrive", 2: "Android Auto: A ligar...", 18: "Guardar registos em USB", 10: "Iniciar Android Auto", 11: "Forcar paragem", 12: "Reiniciar",
-           13: "A ligar...", 14: "Abrir Android Auto", 15: "Iniciar automaticamente", 16: "Sobre", 23: "Definicoes", 24: "Android Auto por USB (beta)"},
+           13: "A ligar...", 14: "Abrir Android Auto", 15: "Iniciar automaticamente", 16: "Sobre", 23: "Definicoes", 24: "Android Auto por USB (beta)",
+           25: "Em reproducao", 26: "Reproduzir / Pausa", 27: "Faixa seguente", 28: "Faixa anterior",
+           29: "Em reproducao (A tocar)", 30: "Em reproducao (Pausa)", 31: "Pausa", 32: "Reproduzir",
+           33: "Audio direto (Wi-Fi/USB)"},
 }
 LANG_TEXTS["es-US"] = LANG_TEXTS["es-ES"]
 LANG_TEXTS["fr-CA"] = LANG_TEXTS["fr-FR"]

@@ -32,6 +32,9 @@ typedef void (*MicRequestCallback)(bool open, void* user_data);
 // Navigation status channel (ch 10, messages 0x8000 and up): the message id and its protobuf body (after the 2-byte
 // message id). Session thread: copy what you need and return, never block.
 typedef void (*NavStatusCallback)(uint16_t msg_id, const uint8_t* body, size_t len, void* user_data);
+// Media playback status channel (ch 12, messages 0x8001 status and 0x8003 metadata): message id and protobuf body
+// (after the 2-byte message id). Session thread: copy what you need and return, never block.
+typedef void (*MediaStatusCallback)(uint16_t msg_id, const uint8_t* body, size_t len, void* user_data);
 
 class AASession {
 public:
@@ -48,6 +51,7 @@ public:
     void setVideoFocusCallback(VideoFocusCallback cb, void* user_data = NULL);
     void setMicRequestCallback(MicRequestCallback cb, void* user_data = NULL);
     void setNavStatusCallback(NavStatusCallback cb, void* user_data = NULL);
+    void setMediaStatusCallback(MediaStatusCallback cb, void* user_data = NULL);
     bool isActive() const { return isRunning(); }   // true from start() until the session ended or stop()
     // How the phone behaved in the session. Written by the session thread: read it in the session-ended callback.
     enum Outcome {
@@ -66,6 +70,7 @@ public:
     // iDrive controller (default on, NBT_KNOB=0 disables): hard keys / tilt / push as Android key events, rotary as a
     // relative event (keycode 65536 ROTARY_CONTROLLER). Thread-safe; sent on input channel 7.
     void postKeyEvent(uint32_t keycode, bool down);
+    void postMediaKey(uint32_t keycode) { postKeyEvent(keycode, true); postKeyEvent(keycode, false); }
     void postRelativeEvent(uint32_t keycode, int delta);
     // Tell the phone the car took (projected=false) or gave back (projected=true) the screen: an unrequested
     // VideoFocusIndication, sent by the session thread. Thread-safe. Needs the wake pipe (touch forwarding on).
@@ -153,6 +158,8 @@ private:
     void* mic_user_data_;
     NavStatusCallback nav_cb_;
     void* nav_user_data_;
+    MediaStatusCallback media_cb_;
+    void* media_user_data_;
     bool mic_open_;                                // guarded by touch_mutex_
     std::vector<std::vector<uint8_t> > mic_queue_; // guarded by touch_mutex_
     uint32_t mic_sent_;                            // session thread

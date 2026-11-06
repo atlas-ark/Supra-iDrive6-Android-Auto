@@ -20,6 +20,11 @@
       <hmiAction id="25" target="12"/>
       <hmiAction id="80" target="14"/>
       <raAction id="83"/>
+      <hmiAction id="90" target="15"/>
+      <raAction id="91"/>
+      <raAction id="92"/>
+      <raAction id="93"/>
+      <raAction id="94"/>
     </actions>
     <models>
       <textIdModel id="3" textId="1">
@@ -74,6 +79,23 @@
       <textIdModel id="85" textId="24">
         <synonyms/>
       </textIdModel>
+      <textIdModel id="91" textId="25">
+        <synonyms/>
+      </textIdModel>
+      <textIdModel id="92" textId="26">
+        <synonyms/>
+      </textIdModel>
+      <textIdModel id="93" textId="27">
+        <synonyms/>
+      </textIdModel>
+      <textIdModel id="94" textId="28">
+        <synonyms/>
+      </textIdModel>
+      <raListModel id="95" modelType="Richtext"/>
+      <raBoolModel id="96"/>
+      <textIdModel id="97" textId="33">
+        <synonyms/>
+      </textIdModel>
     </models>
     <events>
       <focusEvent id="50" targetModel="40"/>
@@ -87,6 +109,11 @@
           <button action="21" id="61" model="31" text="Start Android Auto"/>
           <button action="22" id="62" model="32" text="Force Stop"/>
           <button action="23" id="63" model="33" text="Restart"/>
+          <separator id="80"/>
+          <button action="90" id="74" model="91" text="Now Playing"/>
+          <button action="91" id="76" model="92" text="Play / Pause"/>
+          <button action="92" id="77" model="93" text="Next track"/>
+          <button action="93" id="78" model="94" text="Previous track"/>
           <separator id="66"/>
           <button action="80" id="81" model="82" text="Settings"/>
           <button action="25" id="65" model="36" text="About"/>
@@ -151,6 +178,23 @@
           <checkbox action="29" id="72" model="46" text="Turn arrows in cluster/HUD" textModel="47"/>
           <checkbox action="30" id="73" model="48" text="Show iDrive warnings" textModel="49"/>
           <checkbox action="83" id="86" model="84" text="Android Auto over USB (beta)" textModel="85"/>
+          <checkbox action="94" id="79" model="96" text="Direct audio (Wi-Fi/USB)" textModel="97"/>
+        </components>
+      </hmiState>
+      <!-- Live Now Playing view (hmiState 15): reached from "Now Playing" (hmiAction 90) in hmiState 10. -->
+      <hmiState id="15" parentId="10" text="Now Playing" textModel="91">
+        <properties>
+          <property id="24" value="3"/>
+        </properties>
+        <components>
+          <button action="91" id="87" model="92" text="Play / Pause"/>
+          <button action="92" id="88" model="93" text="Next track"/>
+          <button action="93" id="89" model="94" text="Previous track"/>
+          <list id="90" model="95">
+            <properties>
+              <property id="2" value="false"/>
+            </properties>
+          </list>
         </components>
       </hmiState>
     </hmiStates>

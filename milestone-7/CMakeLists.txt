@@ -36,6 +36,8 @@ set(SOURCES
     src/video_manager.cpp
     src/mmr_launch.cpp
     src/tcp_server.cpp
+    src/usb_accessory.cpp
+    src/usb_direct.cpp
     src/aa_session.cpp
     src/audio/audio_acks.cpp
     src/aa_cryptor.cpp
@@ -56,6 +58,8 @@ set(SOURCES
     src/crash_handler.cpp
     src/kombi_client.cpp
     src/kombi_nav.cpp
+    src/volume_osd.cpp
+    src/aa_media_status.cpp
     src/audio/speex.c
 )
 
@@ -76,10 +80,12 @@ target_compile_options(nbt-aad PRIVATE
 # -la2i_client (Audio/Mic)
 # -lsys_dsi_servicebroker.cpp-ne (DSI Input)
 # -lssl -lcrypto (OpenSSL)
+# -lusbdi (USB Accessory)
 target_link_libraries(nbt-aad PRIVATE
     a2i_client
     socket
     ssl
     crypto
     screen
+    usbdi
 )

@@ -87,6 +87,8 @@ AASession::AASession()
     mic_user_data_ = NULL;
     nav_cb_ = NULL;
     nav_user_data_ = NULL;
+    media_cb_ = NULL;
+    media_user_data_ = NULL;
     mic_open_ = false;
     mic_sent_ = 0;
     audio_frames_[0] = audio_frames_[1] = audio_frames_[2] = 0;
@@ -196,6 +198,11 @@ void AASession::setMicRequestCallback(MicRequestCallback cb, void* user_data) {
 void AASession::setNavStatusCallback(NavStatusCallback cb, void* user_data) {
     nav_cb_ = cb;
     nav_user_data_ = user_data;
+}
+
+void AASession::setMediaStatusCallback(MediaStatusCallback cb, void* user_data) {
+    media_cb_ = cb;
+    media_user_data_ = user_data;
 }
 
 bool AASession::micOpen() {
@@ -1235,6 +1242,9 @@ void AASession::sessionLoop() {
                         printf("[AASession] media status ch12: state %u\n", st);
                     }
                 }
+                if (media_cb_)
+                    media_cb_(msg_id, frame_data.size() > 2 ? &frame_data[2] : NULL,
+                              frame_data.size() > 2 ? frame_data.size() - 2 : 0, media_user_data_);
             } else if (msg_id == 0x8000) { // AV SETUP_REQUEST (Phone requests AV configuration on Video/Audio channel)
                 // Only focus/open the main dashboard display. Advertising/focusing all
                 // DHU display channels makes the phone encode several H.264 streams; we

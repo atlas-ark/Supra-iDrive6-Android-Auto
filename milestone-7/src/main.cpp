@@ -118,6 +118,7 @@
 #include "spp_direction.hpp"
 #include "neutral_resume.hpp"
 #include "kombi_nav.hpp"
+#include "aa_media_status.hpp"
 #include <termios.h>
 
 #include <stdio.h>
@@ -156,6 +157,7 @@ static nbt::car::VolumeInput g_carVolume;    // the car's master volume for the 
 static nbt::car::InputActivity g_carInput;   // any car control the driver touched: a consumer of g_most
 static nbt::car::CarGps g_gps;               // the car's GPS fix: a consumer of g_most
 static nbt::most::Trace g_mostTrace;         // NBT_MOST_LOG=1: logs what g_most sees
+static nbt::aamedia::AaMediaBridge g_mediaBridge;   // Android Auto media metadata & status (ch 12 -> /dev/shmem/nbt-aad-media)
 
 // ---- Single instance + control port (NBT_CTL=0 disables, NBT_CTL_PORT overrides 52790) -------------------
 // The iDrive menu entry (plugin/libhmiaad.so) simply starts /opt/aa/nbt-aad every time it is selected. The first
@@ -406,6 +408,21 @@ static void* ctlThread(void*) {
         }
         else if (!strncmp(buf, "drivemode ", 10)) onDriveModeMsg(buf + 10);
         else if (!strncmp(buf, "dsc ", 4)) onDscMsg(buf + 4);
+        else if (!strncmp(buf, "media ", 6)) {
+            const char* cmd = buf + 6;
+            uint32_t key = 0;
+            if (!strncmp(cmd, "next", 4)) key = nbt::AAK_MEDIA_NEXT;
+            else if (!strncmp(cmd, "prev", 4)) key = nbt::AAK_MEDIA_PREVIOUS;
+            else if (!strncmp(cmd, "playpause", 9)) key = nbt::AAK_MEDIA_PLAY_PAUSE;
+            else if (!strncmp(cmd, "pause", 5)) key = nbt::AAK_MEDIA_PAUSE;
+            else if (!strncmp(cmd, "play", 4)) key = nbt::AAK_MEDIA_PLAY;
+            if (key != 0) {
+                printf("[Ctl] 'media %s' -> Android Auto keycode %u\n", cmd, (unsigned)key);
+                g_session.postMediaKey(key);
+            } else {
+                printf("[Ctl] unknown media command '%s' ignored.\n", cmd);
+            }
+        }
         else if (!strncmp(buf, "quit", 4)) { printf("[Ctl] [%9.3f] 'quit' received.\n", upSec()); g_running = 0; }
         else if (!strncmp(buf, "hide", 4)) { printf("[Ctl] 'hide' from the iDrive app: a hard key took iDrive elsewhere.\n"); g_hideReq = 1; }
         else printf("[Ctl] unknown request '%s' ignored.\n", buf);
@@ -1217,6 +1234,7 @@ static void onSessionEnded(void* user_data) {
     // Browser: mixer stopped, source released. Bluetooth: queued audioconn requests dropped, NBT_BT_RELEASE.
     if (g_audioBackend) g_audioBackend->onSessionEnded();
     g_kombiNav.onSessionEnded();   // the worker clears a cluster/HUD arrow
+    g_mediaBridge.onSessionEnded();
 }
 
 // UsbAccessory: no new USB session (and no accessory switch) while a phone is already connected, and a USB bridge
@@ -1790,6 +1808,7 @@ int main(int argc, char* argv[]) {
     g_session.setVideoFocusCallback(&onVideoFocusRequest, NULL);
     g_session.setMicRequestCallback(&onMicRequest, NULL);
     g_session.setNavStatusCallback(&nbt::kombinav::KombiNav::navStatusCallback, &g_kombiNav);
+    g_session.setMediaStatusCallback(&nbt::aamedia::AaMediaBridge::mediaStatusCallback, &g_mediaBridge);
 
     if (!tcp_server.start()) {
         printf("[Main] Fatal: Failed to start TCP server on port %u\n", (unsigned)g_aaPort);
@@ -2192,6 +2211,7 @@ int main(int argc, char* argv[]) {
     if (mic_live) g_audioBackend->stopMic(mic);
     voice.deactivate("shutdown");   // never leave the car mic scenario active behind us
     g_kombiNav.stop();              // clears a cluster/HUD arrow (one quick attempt)
+    g_mediaBridge.stop();           // removes /dev/shmem/nbt-aad-media and cover art
     printf("[Main] [+%.2f s] cluster/HUD arrows stopped\n", upSec() - t0);
     tcp_server.stop();         // no more onClientConnected -> no session can start behind our back
     printf("[Main] [+%.2f s] listener stopped\n", upSec() - t0);

@@ -56,7 +56,8 @@ SRCS = src/main.cpp \
        src/crash_handler.cpp \
        src/kombi_client.cpp \
        src/kombi_nav.cpp \
-       src/volume_osd.cpp
+       src/volume_osd.cpp \
+       src/aa_media_status.cpp
 
 # C sources: the vendored speexdsp resampler (third_party/speexdsp, BSD-3), built through src/audio/speex.c.
 CSRCS = src/audio/speex.c
@@ -101,7 +102,7 @@ RHMI_LIBS = $(wildcard $(RHMI_LIBDIR)/libAppFramework.A.so $(RHMI_LIBDIR)/libCor
 .PHONY: rhmiapp
 rhmiapp: rhmiapp/libNbtAad.so
 
-rhmiapp/libNbtAad.so: rhmiapp/nbt_aad_app.cpp
+rhmiapp/libNbtAad.so: rhmiapp/nbt_aad_app.cpp src/aa_media_status.hpp
 	@echo [BUILD] PluginApp $@
 	$(PLUGIN_CXX) $(PLUGIN_CXXFLAGS) -shared -Wl,-soname,libNbtAad.so -o $@ rhmiapp/nbt_aad_app.cpp $(RHMI_LIBS) -Wl,--allow-shlib-undefined -lang-c++
 	@echo [DONE] Built $@ - install with NbtAad.manifest, NbtAad.xml, NbtAad_ALL_*.zip into Plugins/NbtAad
