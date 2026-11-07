@@ -39,7 +39,7 @@ namespace nbt {
 //   CARPLAY (default, unset) - the CarPlay hotspot: standard behavior
 //   DIRECT                   - the Wi-Fi Direct group only (wfd0, default 172.16.222.1)
 // Note: BOTH is retired in v1.9.35 (ignored; fallback to Settings choice / CARPLAY).
-enum AltWifiMode { ALT_WIFI_CARPLAY = 0, ALT_WIFI_DIRECT = 1 };
+enum AltWifiMode { ALT_WIFI_CARPLAY = 0, ALT_WIFI_DIRECT = 1, ALT_WIFI_BOTH = 2 };
 
 inline bool altWifiRetiredBoth(const char* v) {
     if (!v || !*v) return false;
