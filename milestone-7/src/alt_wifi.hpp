@@ -36,15 +36,26 @@
 namespace nbt {
 
 // Which Wi-Fi the daemon offers the phone.
-//   CARPLAY (default, unset) - the CarPlay hotspot only: today's behaviour, unchanged for every car that works
-//   DIRECT                   - the Wi-Fi Direct group only, and no fallback: one path per run, so a car log shows
-//                              exactly what was tried
-//   BOTH                     - Wi-Fi Direct first, and the CarPlay hotspot once the phone has taken the DIRECT
-//                              details twice without connecting
-enum AltWifiMode { ALT_WIFI_CARPLAY = 0, ALT_WIFI_DIRECT = 1, ALT_WIFI_BOTH = 2 };
+//   CARPLAY (default, unset) - the CarPlay hotspot: standard behavior
+//   DIRECT                   - the Wi-Fi Direct group only (wfd0, default 172.16.222.1)
+// Note: BOTH is retired in v1.9.35 (ignored; fallback to Settings choice / CARPLAY).
+enum AltWifiMode { ALT_WIFI_CARPLAY = 0, ALT_WIFI_DIRECT = 1 };
+
+inline bool altWifiRetiredBoth(const char* v) {
+    if (!v || !*v) return false;
+    char buf[16];
+    size_t n = 0;
+    for (; v[n] && n < sizeof(buf) - 1; ++n) buf[n] = (char)toupper((unsigned char)v[n]);
+    buf[n] = 0;
+    size_t a = 0, b = n;
+    while (a < b && (buf[a] == ' ' || buf[a] == '\t')) ++a;
+    while (b > a && (buf[b - 1] == ' ' || buf[b - 1] == '\t')) --b;
+    buf[b] = 0;
+    return strcmp(buf + a, "BOTH") == 0;
+}
 
 inline AltWifiMode parseAltWifi(const char* v) {
-    if (!v || !*v) return ALT_WIFI_BOTH;      // default since v1.8.78: hotspot if it exists, else the DIRECT group
+    if (!v || !*v) return ALT_WIFI_CARPLAY;
     char buf[16];
     size_t n = 0;
     for (; v[n] && n < sizeof(buf) - 1; ++n) buf[n] = (char)toupper((unsigned char)v[n]);
@@ -56,19 +67,17 @@ inline AltWifiMode parseAltWifi(const char* v) {
     buf[b] = 0;
     const char* w = buf + a;
     if (strcmp(w, "DIRECT") == 0 || strcmp(w, "WFD") == 0 || strcmp(w, "P2P") == 0) return ALT_WIFI_DIRECT;
-    if (strcmp(w, "BOTH") == 0) return ALT_WIFI_BOTH;
-    if (strcmp(w, "CARPLAY") == 0 || strcmp(w, "UAP") == 0) return ALT_WIFI_CARPLAY;
-    return ALT_WIFI_BOTH;         // an unknown word gets the default (hotspot first, DIRECT behind it)
+    return ALT_WIFI_CARPLAY;
 }
 
-inline AltWifiMode altWifiMode() { return parseAltWifi(getenv("NBT_ALT_WIFI")); }
+inline AltWifiMode altWifiMode() {
+    return parseAltWifi(getenv("NBT_ALT_WIFI"));
+}
 
-// Which source is offered first when both are available. CARPLAY and BOTH prefer the car's CarPlay hotspot
-// (the path that is car-verified wherever it exists); only DIRECT puts the Wi-Fi Direct group first.
 inline bool altWifiPrefersCarplay() { return altWifiMode() != ALT_WIFI_DIRECT; }
 
 inline const char* altWifiName(AltWifiMode m) {
-    return m == ALT_WIFI_DIRECT ? "DIRECT" : (m == ALT_WIFI_BOTH ? "BOTH" : "CARPLAY");
+    return m == ALT_WIFI_DIRECT ? "DIRECT" : "CARPLAY";
 }
 
 // CWifiSecurity's hard-coded key (Connectivity, CHBString "NBTEvo0715").
@@ -306,8 +315,7 @@ inline bool wfdSameSubnetStr(const std::string& a, const std::string& b) {
 // Where the daemon listens for the phone, which has to be the interface the phone was told about: on
 // 2026-11-03 the phone joined the DIRECT group and connected to nothing, because the listener was bound to
 // the CarPlay AP (172.16.224.1) while the handshake offered wfd0 (172.16.222.1).
-// NBT_AP_IP still pins one address. BOTH gets NULL (bind every interface) because its fallback lives on the
-// other subnet, and the accept filter below keeps strangers out.
+// NBT_AP_IP still pins one address. DIRECT binds wfd0 (172.16.222.1); CARPLAY binds uap0 (172.16.224.1).
 inline const char* wirelessListenIp() {
     const char* e = getenv("NBT_AP_IP");
     if (e && *e) return e;
@@ -316,7 +324,6 @@ inline const char* wirelessListenIp() {
         const char* w = getenv("NBT_WFD_IP");
         return (w && *w) ? w : "172.16.222.1";
     }
-    if (m == ALT_WIFI_BOTH) return NULL;
     return "172.16.224.1";
 }
 

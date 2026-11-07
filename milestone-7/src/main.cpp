@@ -1560,7 +1560,7 @@ static void onKnobEvent(const nbt::car::CcsEvent& ev, void* user) {
     }
 }
 
-#define NBT_AAD_BUILD "v1.9.33-usbset"
+#define NBT_AAD_BUILD "v1.9.35-wifisel"
 
 // ---- log destination ------------------------------------------------------------------------------------------
 // Default: no USB file; stdout (which the iDrive app sends to /dev/null) goes to the RAM log /dev/shmem/nbt-aad.log
@@ -1706,6 +1706,40 @@ int main(int argc, char* argv[]) {
         int rc = system("pfctl -d");
         printf("[Main] 'pfctl -d' (disable packet filter) returned %d\n", rc);
     }
+
+    const char* altWifiEnv = getenv("NBT_ALT_WIFI");
+    bool retiredBoth = nbt::altWifiRetiredBoth(altWifiEnv);
+    if (retiredBoth) {
+        printf("[Main] NBT_ALT_WIFI=%s in nbt-aad.env: BOTH is retired (v1.9.35), ignored; the Settings Wi-Fi choice applies (default: the CarPlay hotspot)\n", altWifiEnv);
+    }
+    std::string wifiSetting;
+    FILE* fWifi = fopen("/var/opt/aa/wifi-source", "r");
+    if (!fWifi) fWifi = fopen("/opt/aa/wifi-source", "r");
+    if (fWifi) {
+        char buf[64];
+        if (fgets(buf, sizeof(buf), fWifi)) {
+            size_t l = strlen(buf);
+            while (l && (buf[l - 1] == '\r' || buf[l - 1] == '\n' || buf[l - 1] == ' ' || buf[l - 1] == '\t')) buf[--l] = 0;
+            char* p = buf;
+            while (*p == ' ' || *p == '\t') ++p;
+            wifiSetting = p;
+        }
+        fclose(fWifi);
+    }
+    if (!altWifiEnv || !*altWifiEnv || retiredBoth) {
+        bool direct = (wifiSetting == "DIRECT");
+        setenv("NBT_ALT_WIFI", direct ? "DIRECT" : "CARPLAY", 1);
+    }
+    const char* appliedSource = nbt::altWifiName(nbt::altWifiMode());
+    const char* sourceOrigin = (!altWifiEnv || !*altWifiEnv || retiredBoth)
+        ? (!wifiSetting.empty() ? "Settings: Wi-Fi choice" : "default")
+        : "NBT_ALT_WIFI in nbt-aad.env";
+    const char* ignPre = (altWifiEnv && *altWifiEnv && !retiredBoth && !wifiSetting.empty()) ? "; the Settings choice '" : "";
+    const char* ignVal = (altWifiEnv && *altWifiEnv && !retiredBoth && !wifiSetting.empty()) ? wifiSetting.c_str() : "";
+    const char* ignSuf = (altWifiEnv && *altWifiEnv && !retiredBoth && !wifiSetting.empty()) ? "' is ignored while NBT_ALT_WIFI is set" : "";
+
+    printf("[Main] Wi-Fi source: %s (%s)%s%s%s\n",
+           appliedSource, sourceOrigin, ignPre, ignVal, ignSuf);
 
     signal(SIGINT,  signalHandler);
     signal(SIGTERM, signalHandler);

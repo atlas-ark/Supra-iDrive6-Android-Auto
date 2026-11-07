@@ -61,13 +61,12 @@
 #include "boot_guard.hpp"
 #include "overlay_watch.hpp"
 #include "entry_key.hpp"
-#include "../src/aa_media_status.hpp"
 #ifdef __QNX__
 #include <sys/slog.h>
 #include <sys/slogcodes.h>
 #endif
 
-#define NBT_AAD_APP_VERSION "rhmiapp-40-usb (" __DATE__ " " __TIME__ ")"
+#define NBT_AAD_APP_VERSION "rhmiapp-42-wifi (" __DATE__ " " __TIME__ ")"
 
 extern char** environ;
 
@@ -141,7 +140,6 @@ public:
     IObjectContainer* m_obj;
 };
 template <> inline int Variant::ObjectContainer<TextID>::type() const { return 0x28; }
-template <> inline int Variant::ObjectContainer<BasicString<char> >::type() const { return 0x22; }
 
 template <typename K, typename V> class Map {
 public:
@@ -333,27 +331,12 @@ const unsigned    kActUsbAa        = 83;
 const unsigned    kUsbAaModel      = 84;
 const char* const kUsbAaFlag       = "/var/opt/aa/usb-aa";
 const char* const kUsbAaManual     = "/opt/aa/usb-aa";
-// AAIdrive-inspired Now Playing & media controls (hmiState 15 + hmiState 10 rows) and Direct audio toggle.
-const unsigned    kNowPlayingState      = 15;   // <hmiState id="15">
-const unsigned    kActPlayPause         = 91;   // <raAction id="91"/> row "Play / Pause"
-const unsigned    kActNext              = 92;   // <raAction id="92"/> row "Next track"
-const unsigned    kActPrev              = 93;   // <raAction id="93"/> row "Previous track"
-const unsigned    kActDirectAudio       = 94;   // <raAction id="94"/> checkbox "Direct audio (Wi-Fi/USB)"
-const unsigned    kNowPlayingRowModel   = 91;   // <textIdModel id="91">
-const unsigned    kPlayPauseRowModel    = 92;   // <textIdModel id="92">
-const unsigned    kNextRowModel         = 93;   // <textIdModel id="93">
-const unsigned    kPrevRowModel         = 94;   // <textIdModel id="94">
-const unsigned    kNowPlayingModel      = 95;   // <raListModel id="95" modelType="Richtext"/>
-const unsigned    kDirectAudioModel     = 96;   // <raBoolModel id="96"/>
-const unsigned    kTextNowPlaying       = 25;   // "Now Playing"
-const unsigned    kTextPlayPause        = 26;   // "Play / Pause"
-const unsigned    kTextNowPlayingPlay   = 29;   // "Now Playing (Playing)"
-const unsigned    kTextNowPlayingPause  = 30;   // "Now Playing (Paused)"
-const unsigned    kTextPause            = 31;   // "Pause"
-const unsigned    kTextPlay             = 32;   // "Play"
-const unsigned    kTextDirectAudio      = 33;   // "Direct audio (Wi-Fi/USB)"
-const char* const kBtAudioFlag          = "/var/opt/aa/bt-audio";
-const char* const kBtAudioManual        = "/opt/aa/bt-audio";
+// "Wi-Fi Direct instead of CarPlay hotspot" checkbox (rhmiapp-42): <checkbox action="89" id="99" model="92" textModel="95">
+// on the Settings page, off by default (CarPlay hotspot). Flag file read by nbt-aad once at start.
+const unsigned    kActWifi         = 89;
+const unsigned    kWifiModel       = 92;
+const char* const kWifiFlag        = "/var/opt/aa/wifi-source";
+const char* const kWifiManual      = "/opt/aa/wifi-source";
 const char* const kGctxProperty    = "hmi.graphicalContext";
 const char* const kGctxFile        = "/dev/shmem/nbt-aad-gctx";
 // DSC / DTC button: "same as sport mode" - CDS driving.DSCActive flips when the button changes the stability
@@ -458,8 +441,6 @@ bool fileExists(const char* p) {
 // ---- launching the daemon (same as plugin/nbt_aad_plugin.cpp) ---------------------------------------------------
 time_t g_lastLaunch = 0;
 
-bool directAudioOn() { return !fileExists(kBtAudioFlag) && !fileExists(kBtAudioManual); }
-
 void launchDaemon() {
     time_t now = time(NULL);
     if (g_lastLaunch && now - g_lastLaunch < 3) { alog("launch ignored (pressed again within 3 s)"); return; }
@@ -472,24 +453,21 @@ void launchDaemon() {
     strcpy(envbuf[0], "PATH=/bin:/usr/bin:/opt/os/bin:/opt/sys/bin:/opt/core/bin:/opt/car/bin:/fs/sda0/opt/mm/bin");
     envp[ne++] = envbuf[0];
     int nb = 1;
-    bool has_audio_env = false;
     FILE* f = fopen(kDaemonEnv, "r");
     if (f) {
         char line[160];
-        while (nb < 15 && fgets(line, sizeof(line), f)) {
+        while (nb < 16 && fgets(line, sizeof(line), f)) {
             size_t l = strlen(line);
             while (l && (line[l - 1] == '\n' || line[l - 1] == '\r' || line[l - 1] == ' ')) line[--l] = 0;
             if (!l || line[0] == '#' || !strchr(line, '=')) continue;
-            if (!strncmp(line, "NBT_AUDIO_MODE=", 15) || !strncmp(line, "NBT_AUDIO_BT=", 13)) has_audio_env = true;
             strcpy(envbuf[nb], line);
             envp[ne++] = envbuf[nb++];
         }
         fclose(f);
-    }
-    if (!has_audio_env) {
-        bool bt_flag = fileExists(kBtAudioFlag) || fileExists(kBtAudioManual);
-        strcpy(envbuf[nb], bt_flag ? "NBT_AUDIO_BT=1" : "NBT_AUDIO_MODE=browser");
-        envp[ne++] = envbuf[nb++];
+    } else {
+        strcpy(envbuf[1], "NBT_AUDIO_BT=1");
+        envp[ne++] = envbuf[1];
+        nb = 2;
     }
     for (char** e = environ; e && *e && ne < (int)(sizeof(envp) / sizeof(envp[0])) - 1; ++e) {
         if (strncmp(*e, "PATH=", 5) == 0) continue;
@@ -1769,119 +1747,41 @@ bool onUsbAaToggle(void* /*app*/, const bmw::Parcel& /*args*/) {
     return true;
 }
 
-// ---- Direct audio (Wi-Fi/USB) + AAIdrive-style Now Playing & Media Controls --------------------------------------
-bool g_directAudioShown = false;
-uint32_t g_shownMediaSeq = 0;
-int g_shownMediaState = -1;
-bool g_shownMediaAudio = true;
-bool g_mediaInitDone = false;
-unsigned g_shownNowPlayingRow = kTextNowPlaying;
-unsigned g_shownPlayPauseRow = kTextPlayPause;
-
-void showDirectAudio(bmw::PluginApp* app) {
-    app->updateModel(kDirectAudioModel, directAudioOn());
-    g_directAudioShown = true;
+// ---- Wi-Fi Direct instead of CarPlay hotspot (rhmiapp-42) -------------------------------------------------------
+bool g_wifiShown = false;
+bool wifiDirectOn() {
+    FILE* f = fopen(kWifiFlag, "r");
+    if (!f) f = fopen(kWifiManual, "r");
+    if (!f) return false;
+    char buf[16];
+    bool direct = false;
+    if (fgets(buf, sizeof(buf), f)) direct = (strstr(buf, "DIRECT") != NULL);
+    fclose(f);
+    return direct;
 }
 
-void showNowPlaying(bmw::PluginApp* app, const nbt::aamedia::MediaSnapshot& snap, bool direct_audio) {
-    std::string text = nbt::aamedia::formatNowPlayingText(snap, direct_audio);
-    bmw::Map<unsigned, bmw::Variant> cells;
-    bmw::DataTableBase table(&cells, 1);
-    unsigned key = 0;
-    bmw::Variant& v = cells[key];
-    delete v.m_obj;
-    v.m_obj = new bmw::Variant::ObjectContainer<bmw::BasicString<char> >(bmw::BasicString<char>(text.c_str()));
-    app->updateModel(kNowPlayingModel, table);
-    g_shownMediaSeq = snap.seq;
-    g_shownMediaState = snap.state;
-    g_shownMediaAudio = direct_audio;
-    g_mediaInitDone = true;
+void showWifi(bmw::PluginApp* app) {
+    app->updateModel(kWifiModel, wifiDirectOn());
+    g_wifiShown = true;
 }
 
-void serviceMedia(bmw::PluginApp* app, const DaemonState& d) {
-    nbt::aamedia::MediaSnapshot snap;
-    if (d.pid > 0) {
-        nbt::aamedia::AaMediaBridge::readSnapshotFile(nbt::aamedia::AaMediaBridge::kMediaFile, snap);
-        if (snap.pid > 0 && !pidAlive(snap.pid)) snap = nbt::aamedia::MediaSnapshot();
-    }
-    unsigned np_row = (snap.state == nbt::aamedia::kStatePlaying) ? kTextNowPlayingPlay :
-                      (snap.state == nbt::aamedia::kStatePaused)  ? kTextNowPlayingPause : kTextNowPlaying;
-    if (np_row != g_shownNowPlayingRow) {
-        bmw::TextID t(np_row);
-        app->updateModel(kNowPlayingRowModel, t);
-        g_shownNowPlayingRow = np_row;
-    }
-    unsigned pp_row = (snap.state == nbt::aamedia::kStatePlaying) ? kTextPause :
-                      (snap.state == nbt::aamedia::kStatePaused)  ? kTextPlay : kTextPlayPause;
-    if (pp_row != g_shownPlayPauseRow) {
-        bmw::TextID t(pp_row);
-        app->updateModel(kPlayPauseRowModel, t);
-        g_shownPlayPauseRow = pp_row;
-    }
-    bool direct = directAudioOn();
-    if (!g_mediaInitDone || snap.seq != g_shownMediaSeq || snap.state != g_shownMediaState || direct != g_shownMediaAudio) {
-        showNowPlaying(app, snap, direct);
-        if (snap.seq != 0) {
-            alog("Now Playing updated (seq %u, state %s, app '%s', track '%s' - '%s')",
-                 (unsigned)snap.seq, nbt::aamedia::stateName(snap.state),
-                 snap.app.c_str(), snap.title.c_str(), snap.artist.c_str());
-        }
-    }
-}
-
-bool onDirectAudioToggle(void* /*app*/, const bmw::Parcel& /*args*/) {
-    bool direct = directAudioOn();
-    if (direct) {
-        // Turn direct audio OFF -> create /var/opt/aa/bt-audio flag
-        mkdir(kAutostartDir, 0755);
-        int fd = open(kBtAudioFlag, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-        if (fd < 0) alog("direct audio: cannot create %s (errno %d)", kBtAudioFlag, errno);
-        else { ssize_t w = write(fd, "1\n", 2); (void)w; close(fd); }
+bool onWifiToggle(void* /*app*/, const bmw::Parcel& /*args*/) {
+    bool on = wifiDirectOn();
+    if (on) {
+        if (fileExists(kWifiFlag) && unlink(kWifiFlag) != 0)
+            alog("Wi-Fi choice: cannot remove %s (errno %d)", kWifiFlag, errno);
+        if (fileExists(kWifiManual) && unlink(kWifiManual) != 0)
+            alog("Wi-Fi choice: cannot remove %s (errno %d)", kWifiManual, errno);
     } else {
-        if (fileExists(kBtAudioFlag) && unlink(kBtAudioFlag) != 0)
-            alog("direct audio: cannot remove %s (errno %d)", kBtAudioFlag, errno);
-        if (fileExists(kBtAudioManual) && unlink(kBtAudioManual) != 0)
-            alog("direct audio: cannot remove %s (errno %d, read-only?): remove it by hand", kBtAudioManual, errno);
+        mkdir(kAutostartDir, 0755);
+        int fd = open(kWifiFlag, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        if (fd < 0) alog("Wi-Fi choice: cannot create %s (errno %d)", kWifiFlag, errno);
+        else { ssize_t w = write(fd, "DIRECT\n", 7); (void)w; close(fd); }
     }
-    bool now = directAudioOn();
-    alog("menu: direct audio (Wi-Fi/USB) %s -> %s (applies on next Start/Restart)",
-         direct ? "on" : "off", now ? "on (NBT_AUDIO_MODE=browser)" : "off (NBT_AUDIO_BT=1)");
-    if (g_runApp) {
-        showDirectAudio(g_runApp);
-        g_mediaInitDone = false;
-    }
-    return true;
-}
-
-bool onPlayPauseRow(void*, const bmw::Parcel&) {
-    alog("menu: Play / Pause (raAction %u)", kActPlayPause);
-    sendToDaemon("media playpause");
-    return true;
-}
-
-bool onNextRow(void*, const bmw::Parcel&) {
-    alog("menu: Next track (raAction %u)", kActNext);
-    sendToDaemon("media next");
-    return true;
-}
-
-bool onPrevRow(void*, const bmw::Parcel&) {
-    alog("menu: Previous track (raAction %u)", kActPrev);
-    sendToDaemon("media prev");
-    return true;
-}
-
-bool onNowPlayingFocus(void*, const bmw::Parcel& p) {
-    bool f = false;
-    p.readBool(f);
-    alog("now playing state %u focus -> %d", kNowPlayingState, (int)f);
-    if (!f) return true;
-    g_ow.onOwnState(nbt::OverlayWatch::kNowPlayingState, nowMs());
-    if (g_app) {
-        nbt::aamedia::MediaSnapshot snap;
-        nbt::aamedia::AaMediaBridge::readSnapshotFile(nbt::aamedia::AaMediaBridge::kMediaFile, snap);
-        showNowPlaying(g_app, snap, directAudioOn());
-    }
+    bool now = wifiDirectOn();
+    alog("menu: Wi-Fi %s -> %s (applies at the next Start / Restart)",
+         on ? "Wi-Fi Direct" : "CarPlay hotspot", now ? "Wi-Fi Direct" : "CarPlay hotspot");
+    if (g_runApp) showWifi(g_runApp);
     return true;
 }
 
@@ -1999,7 +1899,7 @@ void statusRun(void* /*self*/) {
     if (!g_kombiNavShown) showKombiNav(app);
     if (!g_warningsShown) showWarnings(app);
     if (!g_usbAaShown) showUsbAa(app);
-    if (!g_directAudioShown) showDirectAudio(app);
+    if (!g_wifiShown) showWifi(app);
     if (!g_stopPid) recoverScreenIfUnclean();            // killed / crashed outside Force Stop
     serviceStop();
     serviceAutostart();
@@ -2046,7 +1946,6 @@ void statusRun(void* /*self*/) {
             alog("connected %ld s after Start: event %u -> %s", since, ev, ev == kEvGoHome ? "iDrive main menu" : "Media/Radio list");
         }
     }
-    serviceMedia(app, d);
     strncpy(g_prevState, d.state, sizeof(g_prevState) - 1);
     app->post(reinterpret_cast<bmw::Runnable*>(&g_statusRunnable), kStatusPollMs);
 }
@@ -2182,7 +2081,7 @@ bool onSettingsFocus(void*, const bmw::Parcel& p) {
         showKombiNav(g_app);
         showWarnings(g_app);
         showUsbAa(g_app);
-        showDirectAudio(g_app);
+        showWifi(g_app);
         alog("settings: eight checkbox models refreshed");
     }
     return true;
@@ -2219,10 +2118,7 @@ bool appOnInit(bmw::PluginApp* self) {
     addAction(self, kActKombiNav, &onKombiNavToggle);
     addAction(self, kActWarnings, &onWarningsToggle);
     addAction(self, kActUsbAa, &onUsbAaToggle);
-    addAction(self, kActPlayPause, &onPlayPauseRow);
-    addAction(self, kActNext, &onNextRow);
-    addAction(self, kActPrev, &onPrevRow);
-    addAction(self, kActDirectAudio, &onDirectAudioToggle);
+    addAction(self, kActWifi, &onWifiToggle);
     g_initTime = time(NULL);
     {
         bmw::ActionDelegate d;
@@ -2233,10 +2129,6 @@ bool appOnInit(bmw::PluginApp* self) {
         s.object = self;
         s.stub = &onSettingsFocus;
         self->addHandler(kSettingsState, kHandlerFocus, s);
-        bmw::ActionDelegate np;                          // Now Playing view: refresh metadata, hold accounting
-        np.object = self;
-        np.stub = &onNowPlayingFocus;
-        self->addHandler(kNowPlayingState, kHandlerFocus, np);
         bmw::ActionDelegate f;
         f.object = self;
         f.stub = &onAaFocus;
@@ -2248,7 +2140,6 @@ bool appOnInit(bmw::PluginApp* self) {
     }
     bool ok = self->onInit();
     showAbout(self);
-    showNowPlaying(self, nbt::aamedia::MediaSnapshot(), directAudioOn());
     alog("onInit: raActions %u/%u/%u/%u/%u/%u/%u + menu focus handler + settings focus handler registered, base onInit -> %d, start with the car %s, "
          "save logs to USB %s, MENU opens iDrive %s", kEntryAction, kActStart, kActStop, kActRestart, kActAutostart,
          kActUsbLog, kActMenuIdrive, (int)ok, autostartOn() ? "on" : "off", nbt::usblog::enabled() ? "on" : "off",

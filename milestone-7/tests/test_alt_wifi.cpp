@@ -52,17 +52,24 @@ int main() {
     CHECK(nbt::wfdPassphraseOk(std::string(63, 'a')));
 
     // ---- NBT_ALT_WIFI parsing -----------------------------------------------------
-    // default since v1.8.78: BOTH (the hotspot when the car has one, the DIRECT group behind it)
-    CHECK(nbt::parseAltWifi(NULL) == nbt::ALT_WIFI_BOTH);
-    CHECK(nbt::parseAltWifi("") == nbt::ALT_WIFI_BOTH);
+    // default in v1.9.35: CARPLAY (BOTH is retired)
+    CHECK(nbt::parseAltWifi(NULL) == nbt::ALT_WIFI_CARPLAY);
+    CHECK(nbt::parseAltWifi("") == nbt::ALT_WIFI_CARPLAY);
     CHECK(nbt::parseAltWifi("CARPLAY") == nbt::ALT_WIFI_CARPLAY);
     CHECK(nbt::parseAltWifi("carplay") == nbt::ALT_WIFI_CARPLAY);
     CHECK(nbt::parseAltWifi("DIRECT") == nbt::ALT_WIFI_DIRECT);
     CHECK(nbt::parseAltWifi("direct") == nbt::ALT_WIFI_DIRECT);
-    CHECK(nbt::parseAltWifi("BOTH") == nbt::ALT_WIFI_BOTH);
-    CHECK(nbt::parseAltWifi("both") == nbt::ALT_WIFI_BOTH);
-    CHECK(nbt::parseAltWifi("banana") == nbt::ALT_WIFI_BOTH);      // unknown word: the default
+    CHECK(nbt::parseAltWifi("wfd") == nbt::ALT_WIFI_DIRECT);
+    CHECK(nbt::parseAltWifi("p2p") == nbt::ALT_WIFI_DIRECT);
+    CHECK(nbt::parseAltWifi("BOTH") == nbt::ALT_WIFI_CARPLAY);
+    CHECK(nbt::parseAltWifi("both") == nbt::ALT_WIFI_CARPLAY);
+    CHECK(nbt::altWifiRetiredBoth("BOTH"));
+    CHECK(nbt::altWifiRetiredBoth("both"));
+    CHECK(!nbt::altWifiRetiredBoth("DIRECT"));
+    CHECK(!nbt::altWifiRetiredBoth(NULL));
+    CHECK(nbt::parseAltWifi("banana") == nbt::ALT_WIFI_CARPLAY);      // unknown word: the default
     CHECK(strcmp(nbt::altWifiName(nbt::ALT_WIFI_DIRECT), "DIRECT") == 0);
+    CHECK(strcmp(nbt::altWifiName(nbt::ALT_WIFI_CARPLAY), "CARPLAY") == 0);
     // which source is offered first: only DIRECT puts the Wi-Fi Direct group ahead of the CarPlay hotspot
     setenv("NBT_ALT_WIFI", "CARPLAY", 1);
     CHECK(nbt::altWifiPrefersCarplay());
@@ -181,7 +188,7 @@ int main() {
     CHECK(strcmp(nbt::wirelessListenIp(), "172.16.222.9") == 0);
     unsetenv("NBT_WFD_IP");
     setenv("NBT_ALT_WIFI", "BOTH", 1);
-    CHECK(nbt::wirelessListenIp() == NULL);            // both subnets: listen on every interface
+    CHECK(nbt::wirelessListenIp() && strcmp(nbt::wirelessListenIp(), "172.16.224.1") == 0); // BOTH retired -> CARPLAY
     setenv("NBT_AP_IP", "172.16.224.7", 1);            // an explicit address still wins
     CHECK(nbt::wirelessListenIp() && strcmp(nbt::wirelessListenIp(), "172.16.224.7") == 0);
     unsetenv("NBT_AP_IP");

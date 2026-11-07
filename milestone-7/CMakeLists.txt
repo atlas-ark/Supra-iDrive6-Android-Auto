@@ -98,3 +98,17 @@ target_include_directories(test_controls PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/inc
 add_executable(pf_aa tools/pf_aa.cpp)
 target_compile_options(pf_aa PRIVATE -Wall -Wextra -O2 -D_QNX_SOURCE)
 target_include_directories(pf_aa PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tools)
+
+# Native iDrive RHMI PluginApp (libNbtAad.so for /opt/hmi/ID5/data/ro/Plugins/NbtAad)
+add_library(NbtAad SHARED rhmiapp/nbt_aad_app.cpp)
+set_target_properties(NbtAad PROPERTIES PREFIX "lib" OUTPUT_NAME "NbtAad")
+target_compile_options(NbtAad PRIVATE -Wall -O2 -D_QNX_SOURCE -fPIC)
+target_include_directories(NbtAad PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/rhmiapp/include
+)
+target_link_libraries(NbtAad PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/rhmiapp/lib/libAppFramework.A.so
+    ${CMAKE_CURRENT_SOURCE_DIR}/rhmiapp/lib/libCoreFramework.A.so
+)
