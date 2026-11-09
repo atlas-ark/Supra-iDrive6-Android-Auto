@@ -108,7 +108,9 @@ rhmiapp: rhmiapp/libNbtAad.so
 rhmiapp/libNbtAad.so: rhmiapp/nbt_aad_app.cpp
 	@echo [BUILD] PluginApp $@
 	$(PLUGIN_CXX) $(PLUGIN_CXXFLAGS) -shared -Wl,-soname,libNbtAad.so -o $@ rhmiapp/nbt_aad_app.cpp $(RHMI_LIBS) -Wl,--allow-shlib-undefined -lang-c++
-	@echo [DONE] Built $@ - install with NbtAad.manifest, NbtAad.xml, NbtAad_ALL_*.zip into Plugins/NbtAad
+	mkdir -p Releases
+	cp $@ rhmiapp/NbtAad.manifest rhmiapp/NbtAad.xml rhmiapp/NbtAad_ALL_Images.zip rhmiapp/NbtAad_ALL_Texts.zip Releases/
+	@echo [DONE] Built $@ and staged 5 plugin files into Releases/
 
 .PHONY: plugin
 plugin: plugin/libhmiaad.so plugin/plugin_check rhmiapp/libNbtAad.so
@@ -160,7 +162,7 @@ volcap: tools/volcap.cpp src/dsi_client.cpp src/dsi_client.hpp src/most/ids.hpp 
 
 clean:
 	@echo [CLEAN] Removing object files and binaries
-	rm -f $(OBJS) $(OBJS:.o=.d) $(TARGET) test_display test_controls plugin/libhmiaad.so plugin/plugin_check wfd_probe pf_aa
+	rm -rf $(OBJS) $(OBJS:.o=.d) $(TARGET) test_display test_controls plugin/libhmiaad.so plugin/plugin_check rhmiapp/libNbtAad.so Releases wfd_probe pf_aa
 
 # osdprobe: standalone check that this unit lets us own an LM surface for our own window.
 osdprobe: tools/osdprobe.cpp

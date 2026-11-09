@@ -8,7 +8,7 @@
 //     -t N      run for N seconds (default 180)
 //     -k LIST   FBlock keys (hex, FBlock<<8|Inst) to register as "device controllers"
 //               (default: E510,E503,E505,E512,E514,E501,E502,1502)
-//     -r        raw: also print the full payload of every DSI event
+//     -r        raw: also print the full payload of every DSI event (unlimited, no 256-byte truncation)
 //     -w        setup wizard: asks you to turn / push / tilt the knob and press each hard key, then prints the
 //               nbt-aad.env lines this car needs (NBT_KNOB_INST, NBT_KNOB_INVERT, NBT_KEY_<slot>). Run it on a
 //               terminal you can read (not redirected); add -o FILE to also write the lines to a file.
@@ -68,10 +68,11 @@ long nowMs() {
     return (long)(ts.tv_sec * 1000L + ts.tv_nsec / 1000000L);
 }
 
-void hex(const char* tag, const uint8_t* p, size_t n, size_t max) {
+void hex(const char* tag, const uint8_t* p, size_t n, size_t max = 0) {
     printf("%s", tag);
-    for (size_t i = 0; p && i < n && i < max; ++i) printf(" %02x", p[i]);
-    if (n > max) printf(" ...(%u B)", (unsigned)n);
+    size_t limit = (max == 0) ? n : max;
+    for (size_t i = 0; p && i < n && i < limit; ++i) printf(" %02x", p[i]);
+    if (max > 0 && n > max) printf(" ...(%u B)", (unsigned)n);
     printf("\n");
 }
 
@@ -139,7 +140,8 @@ void onMessage(const uint8_t* pl, uint32_t len) {
     printf("[%6ld] MOST tx=%u var=%u/%u dst=%04X src=%04X FB=%02X inst=%02X fkt=%03X op=%s(%X) hdrTag=%u len=%u:",
            nowMs() - g_t0, m.txType, m.varTag, m.varVal, m.dst, m.src, m.fblock, m.inst, m.fkt,
            opName(m.opType), m.opType, m.hdrTag, (unsigned)m.data.size());
-    for (size_t i = 0; i < m.data.size() && i < 24; ++i) printf(" %02x", m.data[i]);
+    for (size_t i = 0; i < m.data.size() && (g_raw || i < 24); ++i) printf(" %02x", m.data[i]);
+    if (!g_raw && m.data.size() > 24) printf(" ...(%u B)", (unsigned)m.data.size());
     printf("\n");
     decodeCcs(m);
 }
@@ -162,7 +164,7 @@ void onData(DsiClient* c, uint32_t type, uint32_t id, uint32_t seq, const uint8_
     if (g_raw) {
         char tag[96];
         snprintf(tag, sizeof(tag), "[%6ld] DSI type=0x%x id=0x%x seq=%u len=%u raw:", nowMs() - g_t0, type, id, seq, len);
-        hex(tag, pl, len, 256);
+        hex(tag, pl, len, 0);
     }
     if (id == kInfoClientResponse && len >= 6) {
         g_client = rdLe32(pl);
@@ -284,7 +286,7 @@ int main(int argc, char** argv) {
         else if (!strcmp(argv[i], "-l") && i + 1 < argc) logFile = argv[++i];
         else { printf("usage: %s [-t seconds] [-k HEX,HEX,...] [-r] [-w [-o FILE] [-l FILE]]\n", argv[0]); return 1; }
     }
-    char buf[256];
+    char buf[1024];
     strncpy(buf, keyArg, sizeof(buf) - 1);
     buf[sizeof(buf) - 1] = 0;
     for (char* tok = strtok(buf, ","); tok; tok = strtok(NULL, ","))

@@ -50,20 +50,36 @@ static void sendFrame(const unsigned char* f) {
     usleep(30000);
 }
 // Presses (action 0 / 5) and releases (1 / 6) since event index base.
-static void countTaps(size_t base, int* downs, int* ups) {
-    *downs = *ups = 0;
-    pthread_mutex_lock(&g_mx);
-    for (size_t i = base; i < g_ev.size(); ++i) {
-        printf("  ev action=%d n=%d\n", g_ev[i].action, g_ev[i].n);
-        if (g_ev[i].action == 0 || g_ev[i].action == 5) ++*downs;
-        if (g_ev[i].action == 1 || g_ev[i].action == 6) ++*ups;
+static void countTaps(size_t base, int* downs, int* ups, int expDowns = 1, int expUps = 1) {
+    for (int w = 0; w < 60; ++w) {
+        *downs = *ups = 0;
+        pthread_mutex_lock(&g_mx);
+        for (size_t i = base; i < g_ev.size(); ++i) {
+            if (g_ev[i].action == 0 || g_ev[i].action == 5) ++*downs;
+            if (g_ev[i].action == 1 || g_ev[i].action == 6) ++*ups;
+        }
+        pthread_mutex_unlock(&g_mx);
+        if (*downs >= expDowns && *ups >= expUps) break;
+        usleep(10000);
     }
-    pthread_mutex_unlock(&g_mx);
+}
+static void waitForRelease(size_t base) {
+    for (int w = 0; w < 60; ++w) {
+        pthread_mutex_lock(&g_mx);
+        bool got = false;
+        for (size_t i = base; i < g_ev.size(); ++i) {
+            if (g_ev[i].action == 1 || g_ev[i].action == 6) { got = true; break; }
+        }
+        pthread_mutex_unlock(&g_mx);
+        if (got) break;
+        usleep(20000);
+    }
 }
 static size_t evCount() { pthread_mutex_lock(&g_mx); size_t n = g_ev.size(); pthread_mutex_unlock(&g_mx); return n; }
 int main() {
     unlink("/tmp/nbt-test-touch-peer");   // a peer learned by an earlier run (touch_probe.cpp, NBT_HOST_TEST path)
     setenv("NBT_TOUCH_SY", "1.0", 1); setenv("NBT_TOUCH_H", "480", 1);
+    setenv("NBT_TOUCH_CONNECT", "0", 1);
     assert(startTouchForward(30599, &cb, NULL));
     setTouchOwned(true);                  // the forwarder only binds the port while Android Auto is on screen
     usleep(400000);
@@ -81,6 +97,13 @@ int main() {
     send3(2, 280, 240, 3, 420, 240);
     send3(3, 280, 240, 0, 0, 0);
     usleep(200000);
+    for (int w = 0; w < 50; ++w) {
+        pthread_mutex_lock(&g_mx);
+        size_t n = g_ev.size();
+        pthread_mutex_unlock(&g_mx);
+        if (n >= 8) break;
+        usleep(10000);
+    }
     pthread_mutex_lock(&g_mx);
     for (size_t i = 0; i < g_ev.size(); ++i) {
         printf("ev%u action=%d idx=%d n=%d", (unsigned)i, g_ev[i].action, g_ev[i].index, g_ev[i].n);
@@ -104,7 +127,7 @@ int main() {
     send3(1, 500, 100, 0, 0, 0);
     loseMessage();
     send3(1, 600, 120, 0, 0, 0);
-    usleep(700000);
+    waitForRelease(base + 2); // wait for idle release of the second down
     pthread_mutex_lock(&g_mx);
     for (size_t i = base; i < g_ev.size(); ++i) printf("lost-up ev action=%d n=%d\n", g_ev[i].action, g_ev[i].n);
     assert(g_ev.size() >= base + 4);
@@ -146,7 +169,7 @@ int main() {
     printf("pause longer than the idle release, then the same touch goes on:\n");
     base = evCount();
     send3(1, 900, 300, 0, 0, 0);
-    usleep(700000);                               // idle release
+    waitForRelease(base);                         // idle release
     send3(2, 900, 300, 0, 0, 0);
     send3(2, 905, 300, 0, 0, 0);
     send3(3, 905, 300, 0, 0, 0);
@@ -165,12 +188,12 @@ int main() {
     printf("touch whose down was lost after an idle release: still a tap\n");
     base = evCount();
     send3(1, 200, 100, 0, 0, 0);
-    usleep(700000);                               // idle release ("up" lost)
+    waitForRelease(base);                         // idle release ("up" lost)
     loseMessage();                                // ...and the next touch's "down" lost too
     send3(2, 250, 150, 0, 0, 0);
     send3(3, 250, 150, 0, 0, 0);
     usleep(100000);
-    countTaps(base, &downs, &ups);
+    countTaps(base, &downs, &ups, 2, 2);
     assert(downs == 2 && ups == 2);
 
     printf("test_touch OK\n");
